@@ -1,0 +1,107 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.js';
+
+/* ------------------------------------------------------------------
+ * Design token Neobrutalism: border hitam tebal, bayangan keras
+ * tanpa blur, warna jenuh, tipografi besar & berat.
+ * ------------------------------------------------------------------ */
+@theme {
+    --font-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+    --font-sans: 'DM Sans', ui-sans-serif, system-ui, sans-serif;
+
+    --color-paper: #eef1ff;
+    --color-sun: #ffdd00;
+    --color-bubble: #ff6fa5;
+    --color-sky: #4c8dff;
+    --color-mint: #29d68b;
+    --color-tangerine: #ff8f3f;
+
+    --shadow-nb: 5px 5px 0 0 #000;
+    --shadow-nb-sm: 3px 3px 0 0 #000;
+    --shadow-nb-lg: 8px 8px 0 0 #000;
+}
+
+@layer base {
+    html {
+        font-family: var(--font-sans);
+        -webkit-tap-highlight-color: transparent;
+    }
+    body {
+        @apply min-h-dvh bg-paper text-black antialiased;
+        /* pola titik halus khas kertas catatan */
+        background-image: radial-gradient(rgb(0 0 0 / 0.14) 1.2px, transparent 1.2px);
+        background-size: 22px 22px;
+    }
+    h1, h2, h3 {
+        font-family: var(--font-display);
+        @apply font-extrabold tracking-tight;
+    }
+    :focus-visible {
+        @apply outline-4 outline-offset-2 outline-sky;
+    }
+}
+
+@layer components {
+    /* Kartu */
+    .nb-card {
+        @apply rounded-lg border-[3px] border-black bg-white shadow-nb;
+    }
+
+    /* Tombol (tinggi min 44px agar nyaman disentuh di Android) */
+    .nb-btn {
+        @apply inline-flex min-h-11 cursor-pointer items-center justify-center gap-2 rounded-md border-[3px] border-black bg-sun px-4 py-2 text-center font-bold shadow-nb-sm transition;
+    }
+    .nb-btn:hover:not(:disabled) {
+        @apply -translate-x-0.5 -translate-y-0.5 shadow-nb;
+    }
+    .nb-btn:active:not(:disabled) {
+        @apply translate-x-0.75 translate-y-0.75 shadow-none;
+    }
+    .nb-btn:disabled, .nb-btn-disabled {
+        @apply cursor-not-allowed bg-zinc-200 text-zinc-500 shadow-none;
+    }
+
+    /* Form */
+    .nb-label {
+        @apply mb-1.5 block text-sm font-bold;
+    }
+    .nb-input {
+        @apply min-h-11 w-full rounded-md border-[3px] border-black bg-white px-3 py-2 font-medium placeholder:text-zinc-400;
+    }
+    .nb-input:focus {
+        @apply outline-none shadow-nb-sm;
+    }
+    .nb-error {
+        @apply mt-1.5 text-sm font-bold text-red-600;
+    }
+
+    /* Lencana status */
+    .nb-badge {
+        @apply inline-flex items-center rounded-md border-2 border-black px-2 py-0.5 text-sm font-bold;
+    }
+
+    /* Tabel */
+    .nb-table {
+        @apply w-full min-w-[40rem] border-collapse text-left;
+    }
+    .nb-table th {
+        @apply border-b-[3px] border-black bg-sun px-3 py-2.5 text-sm font-bold whitespace-nowrap;
+    }
+    .nb-table td {
+        @apply border-b-2 border-black/15 px-3 py-2.5 align-middle;
+    }
+    .nb-table tbody tr:hover {
+        @apply bg-paper;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    * {
+        transition: none !important;
+        animation: none !important;
+    }
+}
