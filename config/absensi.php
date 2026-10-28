@@ -18,7 +18,7 @@ return [
         'on_time_until' => '09:00',  // lewat jam ini = terlambat
         'end_time'      => '12:00',  // absen masuk ditutup
         'checkout_start' => '15:00', // absen pulang dibuka
-        'checkout_end'   => '16:00', // absen pulang ditutup
+        'checkout_end'   => '17:00', // absen pulang ditutup
     ],
 
     'face' => [

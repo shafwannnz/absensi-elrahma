@@ -31,7 +31,25 @@ class AttendanceService
     public function checkIn(User $user, float $lat, float $lng, ?float $accuracy, array $descriptor, string $photoData): Attendance
     {
         $setting = CampusSetting::current();
-        $now = now(); // timezone mengikuti APP_TIMEZONE (Asia/Jakarta)
+        $now = Carbon::now('Asia/Jakarta');
+        $currentTime = $now->format('H:i:s');
+
+        // Pastikan format jam buka, batas terlambat, dan jam tutup selalu H:i:s
+        $openTime  = Carbon::parse($setting->open_time ?? $setting->check_in_start ?? $setting->jam_buka ?? '01:20:00')->format('H:i:s');
+        $lateLimit = Carbon::parse($setting->late_limit ?? $setting->late_threshold ?? $setting->jam_tepat_waktu ?? '01:20:00')->format('H:i:s');
+        $closeTime = Carbon::parse($setting->close_time ?? $setting->check_in_end ?? $setting->jam_tutup ?? '08:00:00')->format('H:i:s');
+
+        // Pengecekan apakah jam sekarang di luar jam absen
+        if ($currentTime < $openTime) {
+            throw new DomainException("Absen masuk belum dibuka. Dibuka pukul " . substr($openTime, 0, 5) . " WIB.");
+        }
+
+        if ($currentTime > $closeTime) {
+            throw new DomainException("Absen masuk sudah ditutup pukul " . substr($closeTime, 0, 5) . " WIB.");
+        }
+
+        // Penentuan variabel $status (Hadir / Terlambat) agar tidak error di baris 107
+        $status = ($currentTime <= $lateLimit) ? 'hadir' : 'terlambat';
 
         $this->assertFaceEnrolled($user);
 
@@ -81,7 +99,7 @@ class AttendanceService
     public function checkOut(User $user, float $lat, float $lng, ?float $accuracy, array $descriptor, string $photoData): Attendance
     {
         $setting = CampusSetting::current();
-        $now = now();
+        $now = Carbon::now('Asia/Jakarta');
 
         $this->assertFaceEnrolled($user);
 

@@ -1,7 +1,9 @@
 @extends('layouts.app')
 @section('title', 'Absen')
 @section('heading', 'Halo, '.explode(' ', auth()->user()->name)[0])
-@section('subheading', now()->translatedFormat('l, d F Y').' · Absen dibuka '.$setting->start_time.'–'.$setting->end_time.' WIB, tepat waktu sampai '.$setting->on_time_until.'.')
+@section('subheading', now()->translatedFormat('l, d F Y').' · '.($mode === 'out'
+    ? 'Absen pulang dibuka '.$setting->checkout_start.'–'.$setting->checkout_end.' WIB.'
+    : 'Absen masuk dibuka '.$setting->start_time.'–'.$setting->end_time.' WIB, tepat waktu sampai '.$setting->on_time_until.'.'))
 
 @push('head')
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
@@ -15,10 +17,13 @@
     <p id="result-time" class="mt-2 font-bold">
         @if ($today){{ $today->checked_in_at->format('H:i') }} WIB · {{ $today->distance_m }} m dari kampus @endif
     </p>
+    @if ($today?->checked_out_at)
+        <p class="mt-1 font-bold">Absen pulang: {{ $today->checked_out_at->format('H:i') }} WIB · {{ $today->out_distance_m }} m dari kampus</p>
+    @endif
     <a href="{{ route('student.history') }}" class="nb-btn mt-4 bg-white">Lihat riwayat</a>
 </div>
 
-@if (! $today)
+@if ($mode === 'in' || $mode === 'out')
     @if (! $hasFace)
         <div class="nb-card bg-bubble p-6">
             <h2 class="text-2xl">Daftarkan wajah dulu</h2>
@@ -28,7 +33,8 @@
     @else
         <div id="attendance-app" class="grid gap-6 lg:grid-cols-2"
              data-lat="{{ $setting->latitude }}" data-lng="{{ $setting->longitude }}"
-             data-radius="{{ $setting->radius_m }}" data-url="{{ route('student.attendance.store') }}">
+             data-radius="{{ $setting->radius_m }}"
+             data-url="{{ $mode === 'out' ? route('student.attendance.checkout') : route('student.attendance.store') }}">
 
             {{-- Kamera --}}
             <section id="capture-panel" class="nb-card space-y-4 p-4 sm:p-5">
@@ -41,7 +47,9 @@
                 <p id="message" class="hidden"></p>
 
                 <button id="btn-start" type="button" class="nb-btn w-full bg-sky">Nyalakan kamera</button>
-                <button id="btn-checkin" type="button" class="nb-btn w-full bg-mint py-3 text-lg" disabled>Absen sekarang</button>
+                <button id="btn-attendance" type="button" class="nb-btn w-full bg-mint py-3 text-lg" disabled>
+                    {{ $mode === 'out' ? 'Absen pulang sekarang' : 'Absen masuk sekarang' }}
+                </button>
                 <p class="text-sm font-medium text-zinc-600">Tombol aktif jika wajah terdeteksi dan Anda berada dalam radius {{ $setting->radius_m }} m dari kampus.</p>
             </section>
 
@@ -62,7 +70,7 @@
 @endif
 @endsection
 
-@if (! $today && $hasFace)
+@if (($mode === 'in' || $mode === 'out') && $hasFace)
     @push('scripts')
         <script defer src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
         <script defer src="{{ config('absensi.face.script_url') }}"></script>

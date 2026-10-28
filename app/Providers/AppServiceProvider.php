@@ -14,7 +14,7 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        // Nama hari & bulan Bahasa Indonesia pada translatedFormat() (mis. "Sabtu, 03 Oktober 2026").
-        Carbon::setLocale(config('app.locale'));
+        config(['app.timezone' => 'Asia/Jakarta']);
+        date_default_timezone_set('Asia/Jakarta');
     }
 }

@@ -23,7 +23,7 @@ function init(app) {
     const $ = (id) => document.getElementById(id);
     const video = $('video');
     const btnStart = $('btn-start');
-    const btnCheckin = $('btn-checkin');
+    const btnAttendance = $('btn-attendance');
     const faceState = $('face-state');
     const distanceText = $('distance-text');
     const distanceBar = $('distance-bar');
@@ -132,11 +132,11 @@ function init(app) {
     // Tombol absen hanya aktif jika kamera hidup, wajah terlihat, dan lokasi di dalam radius.
     function refreshButton() {
         const inside = state.distance !== null && state.distance <= campus.radius;
-        btnCheckin.disabled = !(state.running && state.faceOk && inside && !state.submitting);
+        btnAttendance.disabled = !(state.running && state.faceOk && inside && !state.submitting);
     }
 
     // ---------- Kirim absensi ----------
-    btnCheckin.addEventListener('click', async () => {
+    btnAttendance.addEventListener('click', async () => {
         state.submitting = true;
         refreshButton();
         setStatus(message, 'Memverifikasi wajah dan lokasi…');
@@ -168,7 +168,7 @@ function init(app) {
         }
     });
 
-            function onSuccess(data) {
+    function onSuccess(data) {
         state.running = false;
         stopCamera(state.stream);
         if (state.watchId !== null) navigator.geolocation.clearWatch(state.watchId);
