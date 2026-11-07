@@ -12,16 +12,18 @@ class DashboardController extends Controller
 {
     public function __invoke(): View
     {
-        $totalStudents = User::students()->count();
-        $presentToday  = Attendance::today()->where('status', Attendance::STATUS_PRESENT)->count();
-        $lateToday     = Attendance::today()->where('status', Attendance::STATUS_LATE)->count();
+        $totalStudents  = User::students()->count();
+        $presentToday   = Attendance::today()->where('status', Attendance::STATUS_PRESENT)->count();
+        $lateToday      = Attendance::today()->where('status', Attendance::STATUS_LATE)->count();
+        $checkedOutToday = Attendance::today()->whereNotNull('checked_out_at')->count();
 
         $stats = [
-            'total_attendance' => Attendance::count(),
-            'present_today'    => $presentToday,
-            'late_today'       => $lateToday,
-            'total_students'   => $totalStudents,
-            'absent_today'     => max($totalStudents - $presentToday - $lateToday, 0),
+            'total_attendance'   => Attendance::count(),
+            'present_today'      => $presentToday,
+            'late_today'         => $lateToday,
+            'total_students'     => $totalStudents,
+            'absent_today'       => max($totalStudents - $presentToday - $lateToday, 0),
+            'checked_out_today'  => $checkedOutToday,
         ];
 
         return view('admin.dashboard', [

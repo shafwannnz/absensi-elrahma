@@ -10,6 +10,7 @@ use App\Services\AttendanceService;
 use DomainException;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 
 class AttendanceController extends Controller
@@ -17,15 +18,19 @@ class AttendanceController extends Controller
     /** Halaman absen: kamera + lokasi. Mode menyesuaikan kondisi hari ini. */
     public function create(Request $request): View
     {
-        $user  = $request->user();
+        $user = $request->user();
+        $setting = CampusSetting::current();
         $today = Attendance::where('user_id', $user->id)->today()->first();
+        $now = Carbon::now('Asia/Jakarta');
 
         return view('student.attendance', [
-            'setting' => CampusSetting::current(),
-            'today'   => $today,
+            'setting' => $setting,
+            'today' => $today,
             'hasFace' => $user->hasFace(),
             // in = belum absen masuk | out = sudah masuk, belum pulang | done = keduanya selesai
-            'mode'    => ! $today ? 'in' : ($today->checked_out_at ? 'done' : 'out'),
+            'mode' => ! $today ? 'in' : ($today->checked_out_at ? 'done' : 'out'),
+            // Status jendela absen pulang untuk keterangan di UI (server tetap otoritatif saat submit).
+            'checkoutState' => $this->checkoutState($now, $setting->checkout_start, $setting->checkout_end),
         ]);
     }
 
@@ -39,10 +44,11 @@ class AttendanceController extends Controller
         }
 
         return response()->json([
-            'message'  => 'Absen masuk berhasil dicatat.',
-            'status'   => $attendance->status,
-            'label'    => $attendance->status_label,
-            'time'     => $attendance->checked_in_at->format('H:i'),
+            'message' => 'Absen masuk berhasil dicatat.',
+            'mode' => 'out', // setelah masuk, halaman berikutnya menampilkan form absen pulang
+            'status' => $attendance->status,
+            'label' => $attendance->status_label,
+            'time' => $attendance->checked_in_at->format('H:i'),
             'distance' => $attendance->distance_m,
         ]);
     }
@@ -57,8 +63,10 @@ class AttendanceController extends Controller
         }
 
         return response()->json([
-            'message'  => 'Absen pulang berhasil dicatat.',
-            'time'     => $attendance->checked_out_at->format('H:i'),
+            'message' => 'Absen pulang berhasil dicatat.',
+            'mode' => 'done', // setelah pulang, halaman berikutnya menampilkan rekap selesai
+            'label' => $attendance->status_label,
+            'time' => $attendance->checked_out_at->format('H:i'),
             'distance' => $attendance->out_distance_m,
         ]);
     }
@@ -70,12 +78,32 @@ class AttendanceController extends Controller
 
         return view('student.history', [
             'attendances' => (clone $query)->latest('attended_on')->paginate(10),
-            'summary'     => [
-                'total'   => (clone $query)->count(),
+            'summary' => [
+                'total' => (clone $query)->count(),
                 'present' => (clone $query)->where('status', Attendance::STATUS_PRESENT)->count(),
-                'late'    => (clone $query)->where('status', Attendance::STATUS_LATE)->count(),
+                'late' => (clone $query)->where('status', Attendance::STATUS_LATE)->count(),
             ],
         ]);
+    }
+
+    /**
+     * Status jendela absen pulang berdasarkan jam WIB.
+     * before = belum dibuka | open = sedang dibuka | after = sudah ditutup.
+     */
+    private function checkoutState(Carbon $now, string $start, string $end): string
+    {
+        $current = $now->format('H:i');
+        $start = substr($start, 0, 5); // normalisasi jika tersimpan "HH:mm:ss"
+        $end = substr($end, 0, 5);
+
+        if ($current < $start) {
+            return 'before';
+        }
+        if ($current > $end) {
+            return 'after';
+        }
+
+        return 'open';
     }
 
     /** Susun argumen service dari request (urutan sesuai parameter checkIn/checkOut). */

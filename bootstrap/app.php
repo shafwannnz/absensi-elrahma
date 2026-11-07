@@ -1,10 +1,11 @@
 <?php
 
 use App\Http\Middleware\EnsureRole;
+use App\Http\Middleware\NoCacheForGuest;
+use App\Http\Middleware\SessionTimeout;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -13,22 +14,16 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-        // Wajib agar HTTPS terdeteksi benar saat diakses lewat tunnel (ngrok / cloudflared).
-        // Di produksi, ganti '*' dengan IP/CIDR reverse-proxy Anda.
         $middleware->trustProxies(at: '*');
 
-        // Alias middleware: ->middleware('role:admin') / ->middleware('role:student')
-        $middleware->alias(['role' => EnsureRole::class]);
+        // Nama pendek yang dipakai di routes/web.php
+        $middleware->alias([
+            'role'           => EnsureRole::class,
+            'no-cache-guest' => NoCacheForGuest::class,
+        ]);
 
-        // Tamu yang membuka halaman terlindungi diarahkan ke login yang sesuai.
-        $middleware->redirectGuestsTo(fn (Request $request) => $request->is('admin', 'admin/*')
-            ? route('admin.login')
-            : route('login'));
-
-        // Pengguna yang sudah login diarahkan ke beranda sesuai perannya.
-        $middleware->redirectUsersTo(fn () => auth()->user()?->isAdmin()
-            ? route('admin.dashboard')
-            : route('student.attendance'));
+        // Timeout sesi untuk semua route web
+        $middleware->appendToGroup('web', SessionTimeout::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

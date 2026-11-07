@@ -14,9 +14,9 @@ return [
         'latitude'      => -6.590043695245298,
         'longitude'     => 106.78561680228029,
         'radius_m'      => 500,      // jarak maksimal dari kampus (meter)
-        'start_time'    => '08:00',  // absensi dibuka
-        'on_time_until' => '09:00',  // lewat jam ini = terlambat
-        'end_time'      => '12:00',  // absen masuk ditutup
+        'start_time'    => '06:00',  // absensi dibuka
+        'on_time_until' => '07:00',  // lewat jam ini = terlambat
+        'end_time'      => '08:00',  // absen masuk ditutup
         'checkout_start' => '15:00', // absen pulang dibuka
         'checkout_end'   => '17:00', // absen pulang ditutup
     ],

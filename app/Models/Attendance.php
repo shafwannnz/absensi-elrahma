@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Attendance extends Model
 {
     public const STATUS_PRESENT = 'hadir';
+
     public const STATUS_LATE = 'terlambat';
 
     protected $fillable = [
@@ -21,13 +22,28 @@ class Attendance extends Model
     protected function casts(): array
     {
         return [
-            'attended_on'   => 'date',
+            'attended_on' => 'date',
             'checked_in_at' => 'datetime',
             'checked_out_at' => 'datetime',
-            'latitude'      => 'float',
-            'longitude'     => 'float',
+            'latitude' => 'float',
+            'longitude' => 'float',
             'face_distance' => 'float',
+            'out_latitude' => 'float',
+            'out_longitude' => 'float',
+            'out_distance_m' => 'integer',
         ];
+    }
+
+    /** Sudah absen pulang hari ini? */
+    public function hasCheckedOut(): bool
+    {
+        return $this->checked_out_at !== null;
+    }
+
+    /** Absen masuk dan pulang sudah lengkap? */
+    public function isComplete(): bool
+    {
+        return $this->checked_in_at !== null && $this->hasCheckedOut();
     }
 
     public function user(): BelongsTo

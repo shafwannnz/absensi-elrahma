@@ -7,12 +7,13 @@ use App\Http\Controllers\Admin\StudentController;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Student\AttendanceController;
 use App\Http\Controllers\Student\FaceController;
+use App\Http\Controllers\WelcomeController;
 use Illuminate\Support\Facades\Route;
 
-Route::redirect('/', '/login');
+Route::get('/', WelcomeController::class)->name('welcome');
 
 // ---------- Autentikasi ----------
-Route::middleware('guest')->group(function () {
+Route::middleware(['guest', 'no-cache-guest'])->group(function () {
     Route::get('/login', [AuthController::class, 'showStudentLogin'])->name('login');
     Route::post('/login', [AuthController::class, 'studentLogin'])->middleware('throttle:10,1')->name('login.attempt');
 

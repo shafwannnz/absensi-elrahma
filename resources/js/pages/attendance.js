@@ -15,6 +15,7 @@ function captureSnapshot(video, width = 480) {
 }
 
 function init(app) {
+    const mode = app.dataset.mode || 'in'; // 'in' = absen masuk, 'out' = absen pulang
     const campus = {
         lat: parseFloat(app.dataset.lat),
         lng: parseFloat(app.dataset.lng),
@@ -142,6 +143,9 @@ function init(app) {
         setStatus(message, 'Memverifikasi wajah dan lokasi…');
 
         try {
+            // Lokasi wajib sudah terdeteksi sebelum mengirim (server juga memvalidasi ulang).
+            if (!state.position) throw new Error('Lokasi belum terdeteksi. Aktifkan GPS dan coba lagi.');
+
             const face = await detectDescriptor(video);
             if (!face) throw new Error('Wajah tidak terdeteksi. Coba lagi.');
 
@@ -173,7 +177,8 @@ function init(app) {
         stopCamera(state.stream);
         if (state.watchId !== null) navigator.geolocation.clearWatch(state.watchId);
 
-        setStatus(message, `${data.message} Pukul ${data.time} WIB.`, 'ok');
+        const label = mode === 'out' ? 'Absen pulang' : 'Absen masuk';
+        setStatus(message, `${data.message} ${label} pukul ${data.time} WIB.`, 'ok');
         window.scrollTo({ top: 0, behavior: 'smooth' });
 
         // Muat ulang agar ringkasan & mode halaman (masuk -> pulang -> selesai) digambar oleh server.

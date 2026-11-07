@@ -19,37 +19,19 @@ class AttendanceService
     public function __construct(
         private readonly GeoService $geo,
         private readonly FaceService $face,
-    ) {
-    }
+    ) {}
 
     /**
      * ABSEN MASUK.
      *
      * @param  array<int,float>  $descriptor  descriptor wajah (128 angka) dari browser
-     * @throws DomainException  pesan sudah ramah untuk ditampilkan ke mahasiswa
+     *
+     * @throws DomainException pesan sudah ramah untuk ditampilkan ke mahasiswa
      */
     public function checkIn(User $user, float $lat, float $lng, ?float $accuracy, array $descriptor, string $photoData): Attendance
     {
         $setting = CampusSetting::current();
         $now = Carbon::now('Asia/Jakarta');
-        $currentTime = $now->format('H:i:s');
-
-        // Pastikan format jam buka, batas terlambat, dan jam tutup selalu H:i:s
-        $openTime  = Carbon::parse($setting->open_time ?? $setting->check_in_start ?? $setting->jam_buka ?? '01:20:00')->format('H:i:s');
-        $lateLimit = Carbon::parse($setting->late_limit ?? $setting->late_threshold ?? $setting->jam_tepat_waktu ?? '01:20:00')->format('H:i:s');
-        $closeTime = Carbon::parse($setting->close_time ?? $setting->check_in_end ?? $setting->jam_tutup ?? '08:00:00')->format('H:i:s');
-
-        // Pengecekan apakah jam sekarang di luar jam absen
-        if ($currentTime < $openTime) {
-            throw new DomainException("Absen masuk belum dibuka. Dibuka pukul " . substr($openTime, 0, 5) . " WIB.");
-        }
-
-        if ($currentTime > $closeTime) {
-            throw new DomainException("Absen masuk sudah ditutup pukul " . substr($closeTime, 0, 5) . " WIB.");
-        }
-
-        // Penentuan variabel $status (Hadir / Terlambat) agar tidak error di baris 107
-        $status = ($currentTime <= $lateLimit) ? 'hadir' : 'terlambat';
 
         $this->assertFaceEnrolled($user);
 
@@ -58,7 +40,8 @@ class AttendanceService
             throw new DomainException('Anda sudah absen masuk hari ini.');
         }
 
-        // Dalam rentang jam absen masuk?
+        // Dalam rentang jam absen masuk? Satu-satunya sumber jam adalah pengaturan admin
+        // (start_time/end_time), sehingga tidak ada lagi fallback kolom yang tidak ada.
         $this->assertWithinWindow($now, $setting->start_time, $setting->end_time, 'Absen masuk');
 
         // Lokasi & wajah.
@@ -73,16 +56,16 @@ class AttendanceService
 
         try {
             return Attendance::create([
-                'user_id'       => $user->id,
-                'attended_on'   => $now->toDateString(),
+                'user_id' => $user->id,
+                'attended_on' => $now->toDateString(),
                 'checked_in_at' => $now,
-                'status'        => $status,
-                'latitude'      => $lat,
-                'longitude'     => $lng,
-                'accuracy_m'    => $accuracy !== null ? (int) round($accuracy) : null,
-                'distance_m'    => (int) round($distance),
+                'status' => $status,
+                'latitude' => $lat,
+                'longitude' => $lng,
+                'accuracy_m' => $accuracy !== null ? (int) round($accuracy) : null,
+                'distance_m' => (int) round($distance),
                 'face_distance' => round($faceDistance, 4),
-                'photo_path'    => $photoPath,
+                'photo_path' => $photoPath,
             ]);
         } catch (UniqueConstraintViolationException) {
             Storage::disk('local')->delete($photoPath); // batalkan file yang sudah terlanjur disimpan
@@ -101,23 +84,30 @@ class AttendanceService
         $setting = CampusSetting::current();
         $now = Carbon::now('Asia/Jakarta');
 
-        $this->assertFaceEnrolled($user);
-
+        // a. Harus sudah absen masuk hari ini.
         $attendance = Attendance::where('user_id', $user->id)
             ->whereDate('attended_on', $now->toDateString())
             ->first();
 
         if (! $attendance) {
-            throw new DomainException('Anda belum absen masuk hari ini, jadi absen pulang belum bisa dilakukan.');
-        }
-        if ($attendance->checked_out_at) {
-            throw new DomainException('Anda sudah absen pulang hari ini.');
+            throw new DomainException('Anda belum melakukan absen masuk hari ini.');
         }
 
+        // b. Hanya boleh absen pulang satu kali per hari.
+        if ($attendance->checked_out_at) {
+            throw new DomainException('Anda sudah melakukan absen pulang hari ini.');
+        }
+
+        // c. Harus berada di dalam jendela jam absen pulang (WIB).
         $this->assertWithinWindow($now, $setting->checkout_start, $setting->checkout_end, 'Absen pulang');
 
+        // Wajah wajib sudah terdaftar sebelum verifikasi biometrik.
+        $this->assertFaceEnrolled($user);
+
+        // d. Geofencing Haversine (radius kampus) + akurasi GPS + kecocokan wajah.
         [$distance, $faceDistance] = $this->verifyPresence($user, $setting, $lat, $lng, $accuracy, $descriptor);
 
+        // e. Simpan snapshot selfie pulang ke disk privat (setelah semua validasi lolos).
         $photoPath = $this->storePhoto($user, $now, $photoData, 'out');
 
         // Update atomik: hanya berhasil jika kolom checked_out_at masih kosong.
@@ -125,18 +115,18 @@ class AttendanceService
         $updated = Attendance::whereKey($attendance->id)
             ->whereNull('checked_out_at')
             ->update([
-                'checked_out_at'    => $now,
-                'out_latitude'      => $lat,
-                'out_longitude'     => $lng,
-                'out_accuracy_m'    => $accuracy !== null ? (int) round($accuracy) : null,
-                'out_distance_m'    => (int) round($distance),
+                'checked_out_at' => $now,
+                'out_latitude' => $lat,
+                'out_longitude' => $lng,
+                'out_accuracy_m' => $accuracy !== null ? (int) round($accuracy) : null,
+                'out_distance_m' => (int) round($distance),
                 'out_face_distance' => round($faceDistance, 4),
-                'out_photo_path'    => $photoPath,
+                'out_photo_path' => $photoPath,
             ]);
 
         if ($updated === 0) {
             Storage::disk('local')->delete($photoPath);
-            throw new DomainException('Anda sudah absen pulang hari ini.');
+            throw new DomainException('Anda sudah melakukan absen pulang hari ini.');
         }
 
         return $attendance->fresh();
@@ -156,7 +146,7 @@ class AttendanceService
     /** Pastikan waktu sekarang berada di antara jam buka dan jam tutup (format "H:i"). */
     private function assertWithinWindow(Carbon $now, string $from, string $to, string $label): void
     {
-        $opensAt  = $this->timeOn($now, $from)->startOfMinute();
+        $opensAt = $this->timeOn($now, $from)->startOfMinute();
         $closesAt = $this->timeOn($now, $to)->endOfMinute();
 
         if ($now->lt($opensAt)) {
@@ -176,7 +166,7 @@ class AttendanceService
     /**
      * Cek akurasi GPS, radius kampus, dan kecocokan wajah.
      *
-     * @return array{0: float, 1: float}  [jarak ke kampus (m), jarak wajah]
+     * @return array{0: float, 1: float} [jarak ke kampus (m), jarak wajah]
      */
     private function verifyPresence(User $user, CampusSetting $setting, float $lat, float $lng, ?float $accuracy, array $descriptor): array
     {
@@ -208,7 +198,7 @@ class AttendanceService
     /** Simpan selfie (data URL JPEG) ke disk privat dan kembalikan path-nya. */
     private function storePhoto(User $user, Carbon $now, string $dataUrl, string $suffix = ''): string
     {
-        $comma  = strpos($dataUrl, ',');
+        $comma = strpos($dataUrl, ',');
         $binary = $comma === false ? false : base64_decode(substr($dataUrl, $comma + 1), true);
 
         // Jangan percaya awalan dari browser: pastikan isinya benar-benar JPEG & ukurannya wajar.
